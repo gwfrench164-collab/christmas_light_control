@@ -1,10 +1,12 @@
 #include <WiFi.h>
 #include <Preferences.h>
 #include "time.h"
+#include <WebServer.h>
 
 Preferences prefs;
+WebServer server(80);
 
-// Timezone (Mountain Standard Time)
+// Timezone
 const long gmtOffset_sec = -7 * 3600;
 const int daylightOffset_sec = 0;
 const char* ntpServer = "pool.ntp.org";
@@ -14,8 +16,8 @@ const int RELAY_PINS[8] = {12, 13, 15, 25, 26, 27, 32, 33};
 const bool RELAY_ACTIVE_LOW = false;
 
 // Schedule
-int on_h = 18, on_m = 0;   // default ON 6:00 PM
-int off_h = 22, off_m = 0; // default OFF 10:00 PM
+int on_h = 18, on_m = 0;
+int off_h = 22, off_m = 0;
 bool relaysEnabled = false;
 
 // Pattern selection
@@ -60,85 +62,50 @@ void runPattern() {
   }
 }
 
-String two(int v) {
-  char b[6];
-  sprintf(b, "%02d", v);
-  return String(b);
+// Web handlers
+void handleRoot() {
+  String html = "<h1>Christmas Light Control</h1>";
+  html += "<p><a href='/on'>Turn ON</a></p>";
+  html += "<p><a href='/off'>Turn OFF</a></p>";
+  html += "<p><a href='/status'>Status</a></p>";
+  html += "<p><a href='/pattern?name=CHASE'>Pattern CHASE</a></p>";
+  html += "<p><a href='/pattern?name=WAVE'>Pattern WAVE</a></p>";
+  html += "<p><a href='/pattern?name=RANDOM'>Pattern RANDOM</a></p>";
+  server.send(200, "text/html", html);
 }
 
-void printStatus() {
+void handleOn() {
+  relaysEnabled = true;
+  server.send(200, "text/plain", "Relays ON");
+}
+
+void handleOff() {
+  relaysEnabled = false;
+  allOff();
+  server.send(200, "text/plain", "Relays OFF");
+}
+
+void handleStatus() {
   struct tm timeinfo;
-  Serial.println("---- STATUS ----");
+  String msg = "Status:\n";
   if (getLocalTime(&timeinfo)) {
-    Serial.printf("Local time: %02d:%02d:%02d\n", timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec);
-  } else {
-    Serial.println("Local time: not available");
+    msg += "Local time: " + String(timeinfo.tm_hour) + ":" + String(timeinfo.tm_min) + "\n";
   }
-  Serial.printf("ON time: %s:%s\n", two(on_h).c_str(), two(on_m).c_str());
-  Serial.printf("OFF time: %s:%s\n", two(off_h).c_str(), two(off_m).c_str());
-  Serial.printf("Pattern: %s\n", currentPattern == CHASE ? "CHASE" :
-                                currentPattern == WAVE ? "WAVE" : "RANDOM");
-  Serial.printf("Relays are %s\n", relaysEnabled ? "ENABLED" : "DISABLED");
-  Serial.println("----------------");
+  msg += "ON time: " + String(on_h) + ":" + String(on_m) + "\n";
+  msg += "OFF time: " + String(off_h) + ":" + String(off_m) + "\n";
+  msg += "Pattern: " + String(currentPattern == CHASE ? "CHASE" :
+                              currentPattern == WAVE ? "WAVE" : "RANDOM") + "\n";
+  msg += "Relays: " + String(relaysEnabled ? "ENABLED" : "DISABLED") + "\n";
+  server.send(200, "text/plain", msg);
 }
 
-bool parseTime(String s, int &h, int &m) {
-  s.trim();
-  int colon = s.indexOf(':');
-  if (colon < 0) return false;
-  int hh = s.substring(0, colon).toInt();
-  int mm = s.substring(colon + 1).toInt();
-  if (hh < 0 || hh > 23 || mm < 0 || mm > 59) return false;
-  h = hh; m = mm;
-  return true;
-}
-
-void processSerialLine(String s) {
-  s.trim();
-  if (s.length() == 0) return;
-
-  if (s.startsWith("seton:")) {
-    int h,m;
-    if (parseTime(s.substring(6), h, m)) {
-      on_h = h; on_m = m;
-      Serial.printf("Saved ON time %02d:%02d\n", on_h, on_m);
-    } else Serial.println("Bad format. Use seton:HH:MM");
-    return;
-  }
-  if (s.startsWith("setoff:")) {
-    int h,m;
-    if (parseTime(s.substring(7), h, m)) {
-      off_h = h; off_m = m;
-      Serial.printf("Saved OFF time %02d:%02d\n", off_h, off_m);
-    } else Serial.println("Bad format. Use setoff:HH:MM");
-    return;
-  }
-  if (s.equalsIgnoreCase("onnow")) {
-    relaysEnabled = true;
-    Serial.println("Relays ENABLED now");
-    return;
-  }
-  if (s.equalsIgnoreCase("offnow")) {
-    relaysEnabled = false;
-    allOff();
-    Serial.println("Relays DISABLED now");
-    return;
-  }
-  if (s.equalsIgnoreCase("status")) {
-    printStatus();
-    return;
-  }
-  if (s.startsWith("pattern:")) {
-    String p = s.substring(8);
-    p.toUpperCase();
-    if (p == "CHASE") currentPattern = CHASE;
-    else if (p == "WAVE") currentPattern = WAVE;
-    else if (p == "RANDOM") currentPattern = RANDOM;
-    else Serial.println("Unknown pattern. Use CHASE, WAVE, RANDOM");
-    printStatus();
-    return;
-  }
-  Serial.println("Unknown command. Use seton:, setoff:, onnow, offnow, status, pattern:");
+void handlePattern() {
+  String name = server.arg("name");
+  name.toUpperCase();
+  if (name == "CHASE") currentPattern = CHASE;
+  else if (name == "WAVE") currentPattern = WAVE;
+  else if (name == "RANDOM") currentPattern = RANDOM;
+  server.send(200, "text/plain", "Pattern set to " + name);
 }
 
 void setup() {
@@ -161,20 +128,24 @@ void setup() {
       Serial.print(".");
     }
     Serial.println("\nConnected!");
+    Serial.print("ESP32 IP address: ");
+    Serial.println(WiFi.localIP());
     configTime(gmtOffset_sec, daylightOffset_sec, ntpServer);
   }
 
-  Serial.println("Ready. Commands: seton:HH:MM  setoff:HH:MM  onnow  offnow  status  pattern:NAME");
-  printStatus();
+  // Setup web server routes
+  server.on("/", handleRoot);
+  server.on("/on", handleOn);
+  server.on("/off", handleOff);
+  server.on("/status", handleStatus);
+  server.on("/pattern", handlePattern);
+  server.begin();
 }
 
 unsigned long lastCheckMs = 0;
 
 void loop() {
-  if (Serial.available()) {
-    String line = Serial.readStringUntil('\n');
-    processSerialLine(line);
-  }
+  server.handleClient();
 
   if (millis() - lastCheckMs > 10000) {
     lastCheckMs = millis();
