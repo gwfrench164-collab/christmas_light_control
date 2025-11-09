@@ -4,7 +4,7 @@
 
 Preferences prefs;
 
-// Timezone (Mountain time standard offset)
+// Timezone (Mountain Standard Time)
 const long gmtOffset_sec = -7 * 3600;
 const int daylightOffset_sec = 0;
 const char* ntpServer = "pool.ntp.org";
@@ -74,10 +74,8 @@ bool parseTime(String s, int &h, int &m) {
   s.trim();
   int colon = s.indexOf(':');
   if (colon < 0) return false;
-  String hs = s.substring(0, colon);
-  String ms = s.substring(colon + 1);
-  int hh = hs.toInt();
-  int mm = ms.toInt();
+  int hh = s.substring(0, colon).toInt();
+  int mm = s.substring(colon + 1).toInt();
   if (hh < 0 || hh > 23 || mm < 0 || mm > 59) return false;
   h = hh; m = mm;
   return true;
@@ -86,15 +84,9 @@ bool parseTime(String s, int &h, int &m) {
 void processSerialLine(String s) {
   s.trim();
   if (s.length() == 0) return;
-  if (s.startsWith("setwifi:")) {
-    // existing provisioning handled elsewhere if needed
-    Serial.println("WiFi set via existing command (use previous sketch).");
-    return;
-  }
   if (s.startsWith("seton:")) {
-    String timestr = s.substring(6);
     int h,m;
-    if (parseTime(timestr, h, m)) {
+    if (parseTime(s.substring(6), h, m)) {
       on_h = h; on_m = m; saveSchedule();
       Serial.printf("Saved ON time %02d:%02d\n", on_h, on_m);
       printStatus();
@@ -102,9 +94,8 @@ void processSerialLine(String s) {
     return;
   }
   if (s.startsWith("setoff:")) {
-    String timestr = s.substring(7);
     int h,m;
-    if (parseTime(timestr, h, m)) {
+    if (parseTime(s.substring(7), h, m)) {
       off_h = h; off_m = m; saveSchedule();
       Serial.printf("Saved OFF time %02d:%02d\n", off_h, off_m);
       printStatus();
@@ -130,23 +121,39 @@ void processSerialLine(String s) {
   Serial.println("Unknown command. Use seton:, setoff:, onnow, offnow, status");
 }
 
-void connectWiFiAndTime(); // forward
-
 void setup() {
   Serial.begin(115200);
   delay(100);
 
   // relay setup
   pinMode(RELAY_PIN, OUTPUT);
-  if (RELAY_ACTIVE_LOW) digitalWrite(RELAY_PIN, HIGH); // off
-  else digitalWrite(RELAY_PIN, LOW); // off
-  relayState = false;
+  setRelay(false);
 
   // load schedule from prefs
   loadSchedule();
 
-  // existing wifi logic: try to connect (use previously saved creds)
-  connectWiFiAndTime();
+  // connect WiFi
+  prefs.begin("wifi", true);
+  String ssid = prefs.getString("ssid", "");
+  String pass = prefs.getString("pass", "");
+  prefs.end();
+  if (ssid.length() > 0) {
+    WiFi.begin(ssid.c_str(), pass.c_str());
+    Serial.printf("Connecting to %s...\n", ssid.c_str());
+    unsigned long start = millis();
+    while (WiFi.status() != WL_CONNECTED && millis() - start < 15000) {
+      delay(500);
+      Serial.print(".");
+    }
+    if (WiFi.status() == WL_CONNECTED) {
+      Serial.println("\nConnected!");
+      configTime(gmtOffset_sec, daylightOffset_sec, ntpServer);
+    } else {
+      Serial.println("\nWiFi connect failed.");
+    }
+  } else {
+    Serial.println("No WiFi credentials saved. Use previous sketch to set them.");
+  }
 
   Serial.println("Ready. Commands: seton:HH:MM  setoff:HH:MM  onnow  offnow  status");
   printStatus();
@@ -155,13 +162,11 @@ void setup() {
 unsigned long lastCheckMs = 0;
 
 void loop() {
-  // read serial lines
   if (Serial.available()) {
     String line = Serial.readStringUntil('\n');
     processSerialLine(line);
   }
 
-  // every 10s check schedule against current time
   if (millis() - lastCheckMs > 10000) {
     lastCheckMs = millis();
     struct tm timeinfo;
@@ -170,9 +175,6 @@ void loop() {
       int on_min = on_h * 60 + on_m;
       int off_min = off_h * 60 + off_m;
 
-      // Decide ON or OFF according to schedule
-      // If on_min <= off_min: normal same-day window (e.g., 18:00-22:00)
-      // If on_min > off_min: overnight window (e.g., 20:00 - 06:00 next day)
       bool shouldBeOn;
       if (on_min <= off_min) {
         shouldBeOn = (now_min >= on_min && now_min < off_min);
@@ -187,8 +189,6 @@ void loop() {
         setRelay(false);
         Serial.println("Schedule: switching RELAY OFF");
       }
-    } else {
-      Serial.println("Time not available (NTP).");
     }
   }
 }
