@@ -4,75 +4,191 @@
 
 Preferences prefs;
 
-const long gmtOffset_sec = -7 * 3600; // Mountain Standard Time
+// Timezone (Mountain time standard offset)
+const long gmtOffset_sec = -7 * 3600;
 const int daylightOffset_sec = 0;
 const char* ntpServer = "pool.ntp.org";
 
-void saveCredentials(const char* ssid, const char* pass) {
-  prefs.begin("wifi", false);
-  prefs.putString("ssid", ssid);
-  prefs.putString("pass", pass);
+// Relay pin
+const int RELAY_PIN = 13;
+const bool RELAY_ACTIVE_LOW = false; // set true if your relay energizes on LOW
+
+// Stored keys
+const char* PREF_NS = "config";
+const char* KEY_ON_H = "on_h";
+const char* KEY_ON_M = "on_m";
+const char* KEY_OFF_H = "off_h";
+const char* KEY_OFF_M = "off_m";
+
+// runtime cached schedule
+int on_h = 18, on_m = 0;   // default ON 18:00 (6pm)
+int off_h = 22, off_m = 0; // default OFF 22:00 (10pm)
+bool relayState = false;
+
+void saveSchedule() {
+  prefs.begin(PREF_NS, false);
+  prefs.putUInt(KEY_ON_H, on_h);
+  prefs.putUInt(KEY_ON_M, on_m);
+  prefs.putUInt(KEY_OFF_H, off_h);
+  prefs.putUInt(KEY_OFF_M, off_m);
   prefs.end();
 }
 
-bool loadCredentials(String &ssid, String &pass) {
-  prefs.begin("wifi", true);
-  ssid = prefs.getString("ssid", "");
-  pass = prefs.getString("pass", "");
+void loadSchedule() {
+  prefs.begin(PREF_NS, true);
+  on_h = prefs.getUInt(KEY_ON_H, on_h);
+  on_m = prefs.getUInt(KEY_ON_M, on_m);
+  off_h = prefs.getUInt(KEY_OFF_H, off_h);
+  off_m = prefs.getUInt(KEY_OFF_M, off_m);
   prefs.end();
-  return ssid.length() > 0;
 }
 
-void connectWiFi() {
-  String ssid, pass;
-  if (loadCredentials(ssid, pass)) {
-    Serial.printf("Connecting to %s...\n", ssid.c_str());
-    WiFi.begin(ssid.c_str(), pass.c_str());
-    unsigned long start = millis();
-    while (WiFi.status() != WL_CONNECTED && millis() - start < 15000) {
-      delay(500);
-      Serial.print(".");
-    }
-    if (WiFi.status() == WL_CONNECTED) {
-      Serial.println("\nConnected!");
-      return;
-    }
+void setRelay(bool on) {
+  relayState = on;
+  if (RELAY_ACTIVE_LOW) digitalWrite(RELAY_PIN, on ? LOW : HIGH);
+  else digitalWrite(RELAY_PIN, on ? HIGH : LOW);
+}
+
+String two(int v) {
+  char b[6];
+  sprintf(b, "%02d", v);
+  return String(b);
+}
+
+void printStatus() {
+  struct tm timeinfo;
+  Serial.println("---- STATUS ----");
+  if (getLocalTime(&timeinfo)) {
+    Serial.printf("Local time: %02d:%02d:%02d\n", timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec);
+  } else {
+    Serial.println("Local time: not available");
   }
-  Serial.println("No WiFi credentials saved or connection failed.");
-  Serial.println("Type in Serial Monitor: setwifi:SSID,PASSWORD");
+  Serial.printf("ON time: %s:%s\n", two(on_h).c_str(), two(on_m).c_str());
+  Serial.printf("OFF time: %s:%s\n", two(off_h).c_str(), two(off_m).c_str());
+  Serial.printf("Relay is %s\n", relayState ? "ON" : "OFF");
+  Serial.println("----------------");
 }
+
+// parse HH:MM from string; returns true on success
+bool parseTime(String s, int &h, int &m) {
+  s.trim();
+  int colon = s.indexOf(':');
+  if (colon < 0) return false;
+  String hs = s.substring(0, colon);
+  String ms = s.substring(colon + 1);
+  int hh = hs.toInt();
+  int mm = ms.toInt();
+  if (hh < 0 || hh > 23 || mm < 0 || mm > 59) return false;
+  h = hh; m = mm;
+  return true;
+}
+
+void processSerialLine(String s) {
+  s.trim();
+  if (s.length() == 0) return;
+  if (s.startsWith("setwifi:")) {
+    // existing provisioning handled elsewhere if needed
+    Serial.println("WiFi set via existing command (use previous sketch).");
+    return;
+  }
+  if (s.startsWith("seton:")) {
+    String timestr = s.substring(6);
+    int h,m;
+    if (parseTime(timestr, h, m)) {
+      on_h = h; on_m = m; saveSchedule();
+      Serial.printf("Saved ON time %02d:%02d\n", on_h, on_m);
+      printStatus();
+    } else Serial.println("bad format. Use seton:HH:MM (24-hour)");
+    return;
+  }
+  if (s.startsWith("setoff:")) {
+    String timestr = s.substring(7);
+    int h,m;
+    if (parseTime(timestr, h, m)) {
+      off_h = h; off_m = m; saveSchedule();
+      Serial.printf("Saved OFF time %02d:%02d\n", off_h, off_m);
+      printStatus();
+    } else Serial.println("bad format. Use setoff:HH:MM (24-hour)");
+    return;
+  }
+  if (s.equalsIgnoreCase("onnow")) {
+    setRelay(true);
+    Serial.println("Relay ON now");
+    printStatus();
+    return;
+  }
+  if (s.equalsIgnoreCase("offnow")) {
+    setRelay(false);
+    Serial.println("Relay OFF now");
+    printStatus();
+    return;
+  }
+  if (s.equalsIgnoreCase("status")) {
+    printStatus();
+    return;
+  }
+  Serial.println("Unknown command. Use seton:, setoff:, onnow, offnow, status");
+}
+
+void connectWiFiAndTime(); // forward
 
 void setup() {
   Serial.begin(115200);
-  connectWiFi();
+  delay(100);
 
-  if (WiFi.status() == WL_CONNECTED) {
-    configTime(gmtOffset_sec, daylightOffset_sec, ntpServer);
-  }
+  // relay setup
+  pinMode(RELAY_PIN, OUTPUT);
+  if (RELAY_ACTIVE_LOW) digitalWrite(RELAY_PIN, HIGH); // off
+  else digitalWrite(RELAY_PIN, LOW); // off
+  relayState = false;
+
+  // load schedule from prefs
+  loadSchedule();
+
+  // existing wifi logic: try to connect (use previously saved creds)
+  connectWiFiAndTime();
+
+  Serial.println("Ready. Commands: seton:HH:MM  setoff:HH:MM  onnow  offnow  status");
+  printStatus();
 }
 
+unsigned long lastCheckMs = 0;
+
 void loop() {
+  // read serial lines
   if (Serial.available()) {
-    String s = Serial.readStringUntil('\n');
-    if (s.startsWith("setwifi:")) {
-      s = s.substring(8);
-      int comma = s.indexOf(',');
-      if (comma > 0) {
-        String ssid = s.substring(0, comma);
-        String pass = s.substring(comma+1);
-        saveCredentials(ssid.c_str(), pass.c_str());
-        Serial.println("Saved WiFi credentials. Restarting...");
-        ESP.restart();
-      }
-    }
+    String line = Serial.readStringUntil('\n');
+    processSerialLine(line);
   }
 
-  if (WiFi.status() == WL_CONNECTED) {
+  // every 10s check schedule against current time
+  if (millis() - lastCheckMs > 10000) {
+    lastCheckMs = millis();
     struct tm timeinfo;
     if (getLocalTime(&timeinfo)) {
-      Serial.printf("Current time: %02d:%02d:%02d\n",
-        timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec);
+      int now_min = timeinfo.tm_hour * 60 + timeinfo.tm_min;
+      int on_min = on_h * 60 + on_m;
+      int off_min = off_h * 60 + off_m;
+
+      // Decide ON or OFF according to schedule
+      // If on_min <= off_min: normal same-day window (e.g., 18:00-22:00)
+      // If on_min > off_min: overnight window (e.g., 20:00 - 06:00 next day)
+      bool shouldBeOn;
+      if (on_min <= off_min) {
+        shouldBeOn = (now_min >= on_min && now_min < off_min);
+      } else {
+        shouldBeOn = (now_min >= on_min || now_min < off_min);
+      }
+
+      if (shouldBeOn && !relayState) {
+        setRelay(true);
+        Serial.println("Schedule: switching RELAY ON");
+      } else if (!shouldBeOn && relayState) {
+        setRelay(false);
+        Serial.println("Schedule: switching RELAY OFF");
+      }
+    } else {
+      Serial.println("Time not available (NTP).");
     }
   }
-  delay(5000);
 }
