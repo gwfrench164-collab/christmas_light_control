@@ -6,7 +6,9 @@
 
 // OpenWeather settings
 const char* weatherApiKey = "454342a3cdd4a2ba06d64285e598c9d6";  // replace with your key
-const char* cityID = "5664401";  // Laramie, WY
+const char* latitude = "41.3114";              // Laramie, WY
+const char* longitude = "-105.5911";           // Laramie, WY
+
 
 
 Preferences prefs;
@@ -229,7 +231,11 @@ void setup() {
     Serial.print("ESP32 IP address: ");
     Serial.println(WiFi.localIP());
     configTime(gmtOffset_sec, daylightOffset_sec, ntpServer);
+
+    updateSunsetTime();  // fetch sunset right after connecting
+
   }
+  
 
   // Setup web server routes
   server.on("/", handleRoot);
