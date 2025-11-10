@@ -7,7 +7,7 @@ Preferences prefs;
 WebServer server(80);
 
 // Timezone
-const long gmtOffset_sec = -7 * 3600;
+const long gmtOffset_sec = -7 * 3600;   // Mountain Standard Time
 const int daylightOffset_sec = 0;
 const char* ntpServer = "pool.ntp.org";
 
@@ -19,6 +19,9 @@ const bool RELAY_ACTIVE_LOW = false;
 int on_h = 18, on_m = 0;
 int off_h = 22, off_m = 0;
 bool relaysEnabled = false;
+
+// Manual override flag
+bool manualOverride = false;
 
 // Pattern selection
 enum Pattern { CHASE, WAVE, RANDOM };
@@ -67,11 +70,12 @@ void handleRoot() {
   String html = "<!DOCTYPE html><html><head><meta charset='UTF-8'>";
   html += "<style>";
   html += "body { font-family: Arial; text-align: center; }";
-  html += "button { display: block; width: 200px; margin: 15px auto; padding: 15px; font-size: 18px; }";
+  html += "button { display: block; width: 220px; margin: 15px auto; padding: 15px; font-size: 18px; }";
   html += "</style></head><body>";
   html += "<h1>Christmas Light Control</h1>";
-  html += "<form action='/on'><button>Turn ON</button></form>";
-  html += "<form action='/off'><button>Turn OFF</button></form>";
+  html += "<form action='/on'><button>Turn ON (Manual)</button></form>";
+  html += "<form action='/off'><button>Turn OFF (Manual)</button></form>";
+  html += "<form action='/auto'><button>Return to Auto Schedule</button></form>";
   html += "<form action='/status'><button>Status</button></form>";
   html += "<form action='/pattern?name=CHASE'><button>Pattern: CHASE</button></form>";
   html += "<form action='/pattern?name=WAVE'><button>Pattern: WAVE</button></form>";
@@ -80,16 +84,22 @@ void handleRoot() {
   server.send(200, "text/html", html);
 }
 
-
 void handleOn() {
   relaysEnabled = true;
-  server.send(200, "text/plain", "Relays ON");
+  manualOverride = true;
+  server.send(200, "text/plain", "Relays ON (manual override)");
 }
 
 void handleOff() {
   relaysEnabled = false;
+  manualOverride = true;
   allOff();
-  server.send(200, "text/plain", "Relays OFF");
+  server.send(200, "text/plain", "Relays OFF (manual override)");
+}
+
+void handleAuto() {
+  manualOverride = false;
+  server.send(200, "text/plain", "Returned to automatic schedule");
 }
 
 void handleStatus() {
@@ -103,6 +113,7 @@ void handleStatus() {
   msg += "Pattern: " + String(currentPattern == CHASE ? "CHASE" :
                               currentPattern == WAVE ? "WAVE" : "RANDOM") + "\n";
   msg += "Relays: " + String(relaysEnabled ? "ENABLED" : "DISABLED") + "\n";
+  msg += "Mode: " + String(manualOverride ? "MANUAL" : "AUTO") + "\n";
   server.send(200, "text/plain", msg);
 }
 
@@ -144,6 +155,7 @@ void setup() {
   server.on("/", handleRoot);
   server.on("/on", handleOn);
   server.on("/off", handleOff);
+  server.on("/auto", handleAuto);
   server.on("/status", handleStatus);
   server.on("/pattern", handlePattern);
   server.begin();
@@ -154,7 +166,8 @@ unsigned long lastCheckMs = 0;
 void loop() {
   server.handleClient();
 
-  if (millis() - lastCheckMs > 10000) {
+  // Only apply schedule if not in manual override
+  if (!manualOverride && millis() - lastCheckMs > 10000) {
     lastCheckMs = millis();
     struct tm timeinfo;
     if (getLocalTime(&timeinfo)) {
