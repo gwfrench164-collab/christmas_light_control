@@ -64,15 +64,22 @@ void runPattern() {
 
 // Web handlers
 void handleRoot() {
-  String html = "<h1>Christmas Light Control</h1>";
-  html += "<p><a href='/on'>Turn ON</a></p>";
-  html += "<p><a href='/off'>Turn OFF</a></p>";
-  html += "<p><a href='/status'>Status</a></p>";
-  html += "<p><a href='/pattern?name=CHASE'>Pattern CHASE</a></p>";
-  html += "<p><a href='/pattern?name=WAVE'>Pattern WAVE</a></p>";
-  html += "<p><a href='/pattern?name=RANDOM'>Pattern RANDOM</a></p>";
+  String html = "<!DOCTYPE html><html><head><meta charset='UTF-8'>";
+  html += "<style>";
+  html += "body { font-family: Arial; text-align: center; }";
+  html += "button { display: block; width: 200px; margin: 15px auto; padding: 15px; font-size: 18px; }";
+  html += "</style></head><body>";
+  html += "<h1>Christmas Light Control</h1>";
+  html += "<form action='/on'><button>Turn ON</button></form>";
+  html += "<form action='/off'><button>Turn OFF</button></form>";
+  html += "<form action='/status'><button>Status</button></form>";
+  html += "<form action='/pattern?name=CHASE'><button>Pattern: CHASE</button></form>";
+  html += "<form action='/pattern?name=WAVE'><button>Pattern: WAVE</button></form>";
+  html += "<form action='/pattern?name=RANDOM'><button>Pattern: RANDOM</button></form>";
+  html += "</body></html>";
   server.send(200, "text/html", html);
 }
+
 
 void handleOn() {
   relaysEnabled = true;
