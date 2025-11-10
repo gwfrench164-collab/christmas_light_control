@@ -5,8 +5,8 @@
 #include <HTTPClient.h>
 
 // OpenWeather settings
-const char* weatherApiKey = "YOUR_API_KEY";  // replace with your key
-const char* cityID = "5419384";              // Denver city ID (example)
+const char* weatherApiKey = "454342a3cdd4a2ba06d64285e598c9d6";  // replace with your key
+const char* cityID = "5664401";  // Laramie, WY
 
 
 Preferences prefs;
