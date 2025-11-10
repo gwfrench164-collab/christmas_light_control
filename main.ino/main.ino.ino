@@ -79,7 +79,10 @@ void runPattern() {
 void updateSunsetTime() {
   if (WiFi.status() == WL_CONNECTED) {
     HTTPClient http;
-    String url = "http://api.openweathermap.org/data/2.5/weather?id=" + String(cityID) + "&appid=" + String(weatherApiKey);
+    String url = "http://api.openweathermap.org/data/2.5/weather?lat=" 
+             + String(latitude) + "&lon=" + String(longitude) 
+             + "&appid=" + String(weatherApiKey);
+
     http.begin(url);
     int httpCode = http.GET();
     if (httpCode == 200) {
