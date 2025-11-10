@@ -27,6 +27,9 @@ bool manualOverride = false;
 enum Pattern { CHASE, WAVE, RANDOM };
 Pattern currentPattern = CHASE;
 
+// Pattern speed (ms per step)
+int patternSpeed = 200;
+
 void setRelay(int idx, bool on) {
   if (RELAY_ACTIVE_LOW) digitalWrite(RELAY_PINS[idx], on ? LOW : HIGH);
   else digitalWrite(RELAY_PINS[idx], on ? HIGH : LOW);
@@ -42,25 +45,25 @@ void runPattern() {
       for (int i = 0; i < 8; i++) {
         allOff();
         setRelay(i, true);
-        delay(200);
+        delay(patternSpeed);
       }
       break;
     case WAVE:
       allOff();
       for (int i = 0; i < 8; i++) {
         setRelay(i, true);
-        delay(150);
+        delay(patternSpeed);
       }
       for (int i = 7; i >= 0; i--) {
         setRelay(i, false);
-        delay(150);
+        delay(patternSpeed);
       }
       break;
     case RANDOM:
       allOff();
       int r = random(0, 8);
       setRelay(r, true);
-      delay(300);
+      delay(patternSpeed);
       break;
   }
 }
@@ -68,11 +71,11 @@ void runPattern() {
 // Web handlers
 void handleRoot() {
   String html = "<!DOCTYPE html><html><head><meta charset='UTF-8'>";
-  html += "<style>body{font-family:Arial;text-align:center;}button{display:block;width:220px;margin:15px auto;padding:15px;font-size:18px;}#msg{margin-top:20px;font-size:16px;color:darkgreen;white-space:pre-line;border:1px solid #ccc;padding:10px;}</style>";
+  html += "<style>body{font-family:Arial;text-align:center;}button{display:block;width:220px;margin:15px auto;padding:15px;font-size:18px;}input{padding:10px;font-size:16px;margin:5px;}label{display:block;margin-top:10px;}#msg{margin-top:20px;font-size:16px;color:darkgreen;white-space:pre-line;border:1px solid #ccc;padding:10px;}</style>";
   html += "<script>";
   html += "function sendCmd(path){fetch(path).then(r=>r.text()).then(t=>{document.getElementById('msg').innerText=t;});}";
   html += "function refreshStatus(){sendCmd('/status');}";
-  html += "setInterval(refreshStatus,5000);"; // auto-refresh every 5 seconds
+  html += "setInterval(refreshStatus,5000);";
   html += "window.onload=refreshStatus;";
   html += "</script></head><body>";
   html += "<h1>Christmas Light Control</h1>";
@@ -86,12 +89,14 @@ void handleRoot() {
   html += "<input id='on' placeholder='HH:MM'><br>";
   html += "<input id='off' placeholder='HH:MM'><br>";
   html += "<button onclick=\"sendCmd('/setschedule?on='+document.getElementById('on').value+'&off='+document.getElementById('off').value)\">Save Schedule</button>";
+  html += "<h2>Pattern Speed</h2>";
+  html += "<input type='range' min='50' max='1000' value='" + String(patternSpeed) + "' id='speed' oninput=\"document.getElementById('speedVal').innerText=this.value\">";
+  html += "<div>Speed: <span id='speedVal'>" + String(patternSpeed) + "</span> ms</div>";
+  html += "<button onclick=\"sendCmd('/setspeed?val='+document.getElementById('speed').value)\">Set Speed</button>";
   html += "<h2>Status</h2><div id='msg'>Loading...</div>";
   html += "</body></html>";
   server.send(200, "text/html", html);
 }
-
-
 
 void handleOn() {
   relaysEnabled = true;
@@ -121,6 +126,7 @@ void handleStatus() {
   msg += "OFF time: " + String(off_h) + ":" + String(off_m) + "\n";
   msg += "Pattern: " + String(currentPattern == CHASE ? "CHASE" :
                               currentPattern == WAVE ? "WAVE" : "RANDOM") + "\n";
+  msg += "Speed: " + String(patternSpeed) + " ms\n";
   msg += "Relays: " + String(relaysEnabled ? "ENABLED" : "DISABLED") + "\n";
   msg += "Mode: " + String(manualOverride ? "MANUAL" : "AUTO") + "\n";
   server.send(200, "text/plain", msg);
@@ -159,6 +165,16 @@ void handlePattern() {
   server.send(200, "text/plain", "Pattern set to " + name);
 }
 
+void handleSetSpeed() {
+  int val = server.arg("val").toInt();
+  if (val >= 50 && val <= 1000) {
+    patternSpeed = val;
+    server.send(200, "text/plain", "Pattern speed set to " + String(patternSpeed) + " ms");
+  } else {
+    server.send(200, "text/plain", "Invalid speed value");
+  }
+}
+
 void setup() {
   Serial.begin(115200);
   for (int i = 0; i < 8; i++) {
@@ -175,7 +191,7 @@ void setup() {
     WiFi.begin(ssid.c_str(), pass.c_str());
     Serial.printf("Connecting to %s...\n", ssid.c_str());
     while (WiFi.status() != WL_CONNECTED) {
-      delay(500);
+      delay(500);            // <-- this line was broken before
       Serial.print(".");
     }
     Serial.println("\nConnected!");
@@ -192,6 +208,7 @@ void setup() {
   server.on("/status", handleStatus);
   server.on("/setschedule", handleSetSchedule);
   server.on("/pattern", handlePattern);
+  server.on("/setspeed", handleSetSpeed);
   server.begin();
 }
 
