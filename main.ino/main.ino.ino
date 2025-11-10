@@ -9,8 +9,6 @@ const char* weatherApiKey = "454342a3cdd4a2ba06d64285e598c9d6";  // replace with
 const char* latitude = "41.3114";              // Laramie, WY
 const char* longitude = "-105.5911";           // Laramie, WY
 
-
-
 Preferences prefs;
 WebServer server(80);
 
@@ -137,18 +135,29 @@ void handleRoot() {
 void handleOn() {
   relaysEnabled = true;
   manualOverride = true;
+  prefs.begin("settings", false);
+prefs.putBool("manualOverride", manualOverride);
+prefs.putBool("relaysEnabled", relaysEnabled);
+prefs.end();
   server.send(200, "text/plain", "Relays ON (manual override)");
 }
 
 void handleOff() {
   relaysEnabled = false;
   manualOverride = true;
+  prefs.begin("settings", false);
+prefs.putBool("manualOverride", manualOverride);
+prefs.putBool("relaysEnabled", relaysEnabled);
+prefs.end();
   allOff();
   server.send(200, "text/plain", "Relays OFF (manual override)");
 }
 
 void handleAuto() {
   manualOverride = false;
+  prefs.begin("settings", false);
+prefs.putBool("manualOverride", manualOverride);
+prefs.end();
   server.send(200, "text/plain", "Returned to automatic schedule");
 }
 
@@ -163,10 +172,13 @@ void handleStatus() {
   msg += "Pattern: " + String(currentPattern == CHASE ? "CHASE" :
                               currentPattern == WAVE ? "WAVE" : "RANDOM") + "\n";
   msg += "Speed: " + String(patternSpeed) + " ms\n";
+  msg += "Sunset mode: " + String(useSunset ? "ON" : "OFF") + "\n";
+  msg += "Sunset offset: " + String(sunsetOffsetMin) + " min\n";
   msg += "Relays: " + String(relaysEnabled ? "ENABLED" : "DISABLED") + "\n";
   msg += "Mode: " + String(manualOverride ? "MANUAL" : "AUTO") + "\n";
   server.send(200, "text/plain", msg);
 }
+
 
 bool parseTime(String s, int &h, int &m) {
   s.trim();
@@ -189,7 +201,26 @@ void handleSetSchedule() {
   if (parseTime(offStr, h, m)) {
     off_h = h; off_m = m;
   }
+
+  prefs.begin("settings", false);
+  prefs.putInt("on_h", on_h);
+  prefs.putInt("on_m", on_m);
+  prefs.putInt("off_h", off_h);
+  prefs.putInt("off_m", off_m);
+  prefs.end();
+
   server.send(200, "text/plain", "Schedule updated: ON " + String(on_h) + ":" + String(on_m) + " OFF " + String(off_h) + ":" + String(off_m));
+}
+
+void handleSunsetMode() {
+  String en = server.arg("enable");
+  useSunset = (en == "1");
+
+  prefs.begin("settings", false);
+  prefs.putBool("useSunset", useSunset);
+  prefs.end();
+
+  server.send(200, "text/plain", String("Sunset mode: ") + (useSunset ? "ENABLED" : "DISABLED"));
 }
 
 void handlePattern() {
@@ -198,6 +229,11 @@ void handlePattern() {
   if (name == "CHASE") currentPattern = CHASE;
   else if (name == "WAVE") currentPattern = WAVE;
   else if (name == "RANDOM") currentPattern = RANDOM;
+
+  prefs.begin("settings", false);
+  prefs.putInt("pattern", (int)currentPattern);
+  prefs.end();
+
   server.send(200, "text/plain", "Pattern set to " + name);
 }
 
@@ -205,6 +241,9 @@ void handleSetSpeed() {
   int val = server.arg("val").toInt();
   if (val >= 50 && val <= 1000) {
     patternSpeed = val;
+    prefs.begin("settings", false);
+    prefs.putInt("speed", patternSpeed);
+    prefs.end();
     server.send(200, "text/plain", "Pattern speed set to " + String(patternSpeed) + " ms");
   } else {
     server.send(200, "text/plain", "Invalid speed value");
@@ -217,6 +256,20 @@ void setup() {
     pinMode(RELAY_PINS[i], OUTPUT);
     setRelay(i, false);
   }
+
+// Load persisted settings
+prefs.begin("settings", true);  // read-only
+useSunset       = prefs.getBool("useSunset", true);  // default: enabled
+sunsetOffsetMin = prefs.getInt("offset", 0);         // default: 0 min
+patternSpeed    = prefs.getInt("speed", 200);        // default: 200 ms
+currentPattern  = (Pattern)prefs.getInt("pattern", (int)CHASE); // default: CHASE
+on_h            = prefs.getInt("on_h", 18);
+on_m            = prefs.getInt("on_m", 0);
+off_h           = prefs.getInt("off_h", 22);
+off_m           = prefs.getInt("off_m", 0);
+manualOverride = prefs.getBool("manualOverride", false);
+relaysEnabled  = prefs.getBool("relaysEnabled", false);
+prefs.end();
 
   // Load WiFi creds
   prefs.begin("wifi", true);
