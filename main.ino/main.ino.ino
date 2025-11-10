@@ -68,10 +68,7 @@ void runPattern() {
 // Web handlers
 void handleRoot() {
   String html = "<!DOCTYPE html><html><head><meta charset='UTF-8'>";
-  html += "<style>";
-  html += "body { font-family: Arial; text-align: center; }";
-  html += "button { display: block; width: 220px; margin: 15px auto; padding: 15px; font-size: 18px; }";
-  html += "</style></head><body>";
+  html += "<style>body{font-family:Arial;text-align:center;}button{display:block;width:220px;margin:15px auto;padding:15px;font-size:18px;}input{padding:10px;font-size:16px;margin:5px;}label{display:block;margin-top:10px;}</style></head><body>";
   html += "<h1>Christmas Light Control</h1>";
   html += "<form action='/on'><button>Turn ON (Manual)</button></form>";
   html += "<form action='/off'><button>Turn OFF (Manual)</button></form>";
@@ -80,6 +77,12 @@ void handleRoot() {
   html += "<form action='/pattern?name=CHASE'><button>Pattern: CHASE</button></form>";
   html += "<form action='/pattern?name=WAVE'><button>Pattern: WAVE</button></form>";
   html += "<form action='/pattern?name=RANDOM'><button>Pattern: RANDOM</button></form>";
+  // Schedule form
+  html += "<h2>Set Schedule</h2>";
+  html += "<form action='/setschedule' method='GET'>";
+  html += "<label>ON Time (HH:MM): <input type='text' name='on'></label>";
+  html += "<label>OFF Time (HH:MM): <input type='text' name='off'></label>";
+  html += "<button type='submit'>Save Schedule</button></form>";
   html += "</body></html>";
   server.send(200, "text/html", html);
 }
@@ -115,6 +118,30 @@ void handleStatus() {
   msg += "Relays: " + String(relaysEnabled ? "ENABLED" : "DISABLED") + "\n";
   msg += "Mode: " + String(manualOverride ? "MANUAL" : "AUTO") + "\n";
   server.send(200, "text/plain", msg);
+}
+
+bool parseTime(String s, int &h, int &m) {
+  s.trim();
+  int colon = s.indexOf(':');
+  if (colon < 0) return false;
+  int hh = s.substring(0, colon).toInt();
+  int mm = s.substring(colon + 1).toInt();
+  if (hh < 0 || hh > 23 || mm < 0 || mm > 59) return false;
+  h = hh; m = mm;
+  return true;
+}
+
+void handleSetSchedule() {
+  String onStr = server.arg("on");
+  String offStr = server.arg("off");
+  int h,m;
+  if (parseTime(onStr, h, m)) {
+    on_h = h; on_m = m;
+  }
+  if (parseTime(offStr, h, m)) {
+    off_h = h; off_m = m;
+  }
+  server.send(200, "text/plain", "Schedule updated: ON " + String(on_h) + ":" + String(on_m) + " OFF " + String(off_h) + ":" + String(off_m));
 }
 
 void handlePattern() {
@@ -157,6 +184,7 @@ void setup() {
   server.on("/off", handleOff);
   server.on("/auto", handleAuto);
   server.on("/status", handleStatus);
+  server.on("/setschedule", handleSetSchedule);
   server.on("/pattern", handlePattern);
   server.begin();
 }
