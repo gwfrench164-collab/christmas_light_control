@@ -68,24 +68,27 @@ void runPattern() {
 // Web handlers
 void handleRoot() {
   String html = "<!DOCTYPE html><html><head><meta charset='UTF-8'>";
-  html += "<style>body{font-family:Arial;text-align:center;}button{display:block;width:220px;margin:15px auto;padding:15px;font-size:18px;}input{padding:10px;font-size:16px;margin:5px;}label{display:block;margin-top:10px;}</style></head><body>";
+  html += "<style>body{font-family:Arial;text-align:center;}button{display:block;width:220px;margin:15px auto;padding:15px;font-size:18px;}#msg{margin-top:20px;font-size:16px;color:darkgreen;}</style>";
+  html += "<script>";
+  html += "function sendCmd(path){fetch(path).then(r=>r.text()).then(t=>{document.getElementById('msg').innerText=t;});}";
+  html += "</script></head><body>";
   html += "<h1>Christmas Light Control</h1>";
-  html += "<form action='/on'><button>Turn ON (Manual)</button></form>";
-  html += "<form action='/off'><button>Turn OFF (Manual)</button></form>";
-  html += "<form action='/auto'><button>Return to Auto Schedule</button></form>";
-  html += "<form action='/status'><button>Status</button></form>";
-  html += "<form action='/pattern?name=CHASE'><button>Pattern: CHASE</button></form>";
-  html += "<form action='/pattern?name=WAVE'><button>Pattern: WAVE</button></form>";
-  html += "<form action='/pattern?name=RANDOM'><button>Pattern: RANDOM</button></form>";
-  // Schedule form
+  html += "<button onclick=\"sendCmd('/on')\">Turn ON (Manual)</button>";
+  html += "<button onclick=\"sendCmd('/off')\">Turn OFF (Manual)</button>";
+  html += "<button onclick=\"sendCmd('/auto')\">Return to Auto Schedule</button>";
+  html += "<button onclick=\"sendCmd('/status')\">Status</button>";
+  html += "<button onclick=\"sendCmd('/pattern?name=CHASE')\">Pattern: CHASE</button>";
+  html += "<button onclick=\"sendCmd('/pattern?name=WAVE')\">Pattern: WAVE</button>";
+  html += "<button onclick=\"sendCmd('/pattern?name=RANDOM')\">Pattern: RANDOM</button>";
   html += "<h2>Set Schedule</h2>";
-  html += "<form action='/setschedule' method='GET'>";
-  html += "<label>ON Time (HH:MM): <input type='text' name='on'></label>";
-  html += "<label>OFF Time (HH:MM): <input type='text' name='off'></label>";
-  html += "<button type='submit'>Save Schedule</button></form>";
+  html += "<input id='on' placeholder='HH:MM'><br>";
+  html += "<input id='off' placeholder='HH:MM'><br>";
+  html += "<button onclick=\"sendCmd('/setschedule?on='+document.getElementById('on').value+'&off='+document.getElementById('off').value)\">Save Schedule</button>";
+  html += "<div id='msg'>Messages will appear here</div>";
   html += "</body></html>";
   server.send(200, "text/html", html);
 }
+
 
 void handleOn() {
   relaysEnabled = true;
