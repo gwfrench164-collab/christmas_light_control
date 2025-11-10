@@ -2,6 +2,12 @@
 #include <Preferences.h>
 #include "time.h"
 #include <WebServer.h>
+#include <HTTPClient.h>
+
+// OpenWeather settings
+const char* weatherApiKey = "YOUR_API_KEY";  // replace with your key
+const char* cityID = "5419384";              // Denver city ID (example)
+
 
 Preferences prefs;
 WebServer server(80);
@@ -65,6 +71,31 @@ void runPattern() {
       setRelay(r, true);
       delay(patternSpeed);
       break;
+  }
+}
+
+void updateSunsetTime() {
+  if (WiFi.status() == WL_CONNECTED) {
+    HTTPClient http;
+    String url = "http://api.openweathermap.org/data/2.5/weather?id=" + String(cityID) + "&appid=" + String(weatherApiKey);
+    http.begin(url);
+    int httpCode = http.GET();
+    if (httpCode == 200) {
+      String payload = http.getString();
+      int sunsetIndex = payload.indexOf("\"sunset\":");
+      if (sunsetIndex > 0) {
+        int end = payload.indexOf(",", sunsetIndex);
+        String sunsetStr = payload.substring(sunsetIndex + 9, end);
+        time_t sunsetUnix = sunsetStr.toInt();
+        struct tm * timeinfo = localtime(&sunsetUnix);
+        on_h = timeinfo->tm_hour;
+        on_m = timeinfo->tm_min;
+        Serial.printf("Updated ON time to sunset: %02d:%02d\n", on_h, on_m);
+      }
+    } else {
+      Serial.printf("Weather API error: %d\n", httpCode);
+    }
+    http.end();
   }
 }
 
@@ -213,11 +244,18 @@ void setup() {
 }
 
 unsigned long lastCheckMs = 0;
+unsigned long lastSunsetUpdate = 0;
 
 void loop() {
   server.handleClient();
 
-  // Only apply schedule if not in manual override
+  // Update sunset once every 24h
+  if (millis() - lastSunsetUpdate > 86400000) { // 24 hours
+    lastSunsetUpdate = millis();
+    updateSunsetTime();
+  }
+
+  // Existing schedule logic...
   if (!manualOverride && millis() - lastCheckMs > 10000) {
     lastCheckMs = millis();
     struct tm timeinfo;
@@ -241,3 +279,4 @@ void loop() {
     delay(500);
   }
 }
+
