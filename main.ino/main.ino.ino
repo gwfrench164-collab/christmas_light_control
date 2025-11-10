@@ -68,15 +68,17 @@ void runPattern() {
 // Web handlers
 void handleRoot() {
   String html = "<!DOCTYPE html><html><head><meta charset='UTF-8'>";
-  html += "<style>body{font-family:Arial;text-align:center;}button{display:block;width:220px;margin:15px auto;padding:15px;font-size:18px;}#msg{margin-top:20px;font-size:16px;color:darkgreen;}</style>";
+  html += "<style>body{font-family:Arial;text-align:center;}button{display:block;width:220px;margin:15px auto;padding:15px;font-size:18px;}#msg{margin-top:20px;font-size:16px;color:darkgreen;white-space:pre-line;border:1px solid #ccc;padding:10px;}</style>";
   html += "<script>";
   html += "function sendCmd(path){fetch(path).then(r=>r.text()).then(t=>{document.getElementById('msg').innerText=t;});}";
+  html += "function refreshStatus(){sendCmd('/status');}";
+  html += "setInterval(refreshStatus,5000);"; // auto-refresh every 5 seconds
+  html += "window.onload=refreshStatus;";
   html += "</script></head><body>";
   html += "<h1>Christmas Light Control</h1>";
   html += "<button onclick=\"sendCmd('/on')\">Turn ON (Manual)</button>";
   html += "<button onclick=\"sendCmd('/off')\">Turn OFF (Manual)</button>";
   html += "<button onclick=\"sendCmd('/auto')\">Return to Auto Schedule</button>";
-  html += "<button onclick=\"sendCmd('/status')\">Status</button>";
   html += "<button onclick=\"sendCmd('/pattern?name=CHASE')\">Pattern: CHASE</button>";
   html += "<button onclick=\"sendCmd('/pattern?name=WAVE')\">Pattern: WAVE</button>";
   html += "<button onclick=\"sendCmd('/pattern?name=RANDOM')\">Pattern: RANDOM</button>";
@@ -84,10 +86,11 @@ void handleRoot() {
   html += "<input id='on' placeholder='HH:MM'><br>";
   html += "<input id='off' placeholder='HH:MM'><br>";
   html += "<button onclick=\"sendCmd('/setschedule?on='+document.getElementById('on').value+'&off='+document.getElementById('off').value)\">Save Schedule</button>";
-  html += "<div id='msg'>Messages will appear here</div>";
+  html += "<h2>Status</h2><div id='msg'>Loading...</div>";
   html += "</body></html>";
   server.send(200, "text/html", html);
 }
+
 
 
 void handleOn() {
