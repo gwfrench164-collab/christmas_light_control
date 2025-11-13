@@ -1,0 +1,48 @@
+How you’ll perform an OTA update in the field
+You can do this whether the ESP32 is on your home/office Wi‑Fi or in AP fallback:
+A) When it’s on your Wi‑Fi (STA mode)
+
+Get the IP or use mDNS: open http://xmas.local/ (if mDNS is working) or the device’s IP.
+Go to /update → log in → upload the .bin you built (see section 3).
+The ESP32 writes to the inactive OTA partition and reboots into the new firmware (safe dual‑slot scheme). [github.com]
+
+B) When it can’t join a network (AP fallback)
+
+Power the device; after ~15 s it starts AP XMAS-SETUP-XXXX.
+Connect your phone/laptop to that SSID.
+In a browser, open http://192.168.4.1/update → log in → upload the .bin.
+(Optional) After reboot, open /setup on the same AP to enter the new Wi‑Fi SSID/password so it joins that network next boot.
+
+This captive‑portal fallback is the standard recovery path for devices moved to a new location. [lastminute...ineers.com]
+
+
+
+
+3) How to produce the .bin firmware you’ll upload
+You have two easy options:
+Option 1 — Arduino IDE (manual)
+
+On any development PC, open the sketch.
+Sketch → Export compiled Binary → this creates a .bin next to your .ino.
+Take that .bin with you (USB drive, email, or download to your phone) and upload it via /update.
+
+This mirrors the official Web Updater workflow. [randomnerd...orials.com]
+
+
+
+Option 2 — GitHub Actions (automatic)
+
+Set up a simple CI workflow to build the .bin on every push and attach it to the build artifacts or a release. Then you can download the artifact to your phone and upload it at /update.
+If you want, I can draft a minimal Arduino CLI or PlatformIO action for your repo.
+
+
+Under the hood, ESP32 OTA uses two app partitions (e.g., ota_0 and ota_1) plus an otadata selector, so a power loss mid‑update won’t brick the unit—the prior image remains bootable. [github.com]
+
+
+4) How to change Wi‑Fi later (no opening the box)
+Whenever the device can’t join its last network, it starts AP mode automatically. Just:
+
+Join its AP (SSID like XMAS-SETUP-XXXX).
+Open http://192.168.4.1/setup and enter the new SSID/password.
+It reboots and connects to the new Wi‑Fi.
+From then on, you can use /update on that LAN as usual.
