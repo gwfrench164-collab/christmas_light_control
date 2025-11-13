@@ -313,7 +313,6 @@ prefs.end();
 }
 
 unsigned long lastCheckMs = 0;
-unsigned long lastSunsetUpdate = 0;
 
 void loop() {
   server.handleClient();
