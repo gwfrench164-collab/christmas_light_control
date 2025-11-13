@@ -31,6 +31,8 @@
 #include <Preferences.h>
 #include <time.h>
 #include <ArduinoJson.h>
+#include <HTTPUpdateServer.h>
+HTTPUpdateServer httpUpdater;
 
 // ----------------------------- Hardware config -----------------------------
 const int RELAY_PINS[8] = {12, 13, 15, 25, 26, 27, 32, 33};
@@ -786,6 +788,8 @@ void mountRoutes(bool apMode) {
 
   server.on("/setshuffle", handleSetShuffle);
   server.on("/sethold", handleSetHold);
+
+httpUpdater.setup(&server, "/update", "Gfrench", "Twisteroo419!");
 
   server.begin();
 }
