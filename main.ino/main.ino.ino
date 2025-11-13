@@ -167,10 +167,10 @@ void handleRoot() {
 
   // Status
   html += "<div class='section'>";
-  html += "<h2>Status</h2>;
+  html += "<h2>Status</h2>";
   html += "<div id='msg'>Loading...</div>";
   html += "</div>";
-  
+
   html += "</body></html>";
   server.send(200, "text/html", html);
 }
