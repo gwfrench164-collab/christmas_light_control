@@ -4,6 +4,13 @@
 #include <WebServer.h>
 #include <HTTPClient.h>
 
+// Sunset scheduling state (globals)
+bool useSunset = true;       // default: use sunset-based ON time
+int sunsetOffsetMin = 0;     // default: no offset from sunset (minutes)
+
+// Persistence helpers
+unsigned long lastSunsetUpdate = 0; // daily refresh tracker
+
 // OpenWeather settings
 const char* weatherApiKey = "454342a3cdd4a2ba06d64285e598c9d6";  // replace with your key
 const char* latitude = "41.3114";              // Laramie, WY
