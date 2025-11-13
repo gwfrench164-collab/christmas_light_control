@@ -165,6 +165,16 @@ void handleRoot() {
   html += "<button onclick=\"sendCmd('/setspeed?val='+document.getElementById('speed').value)\">Set Speed</button>";
   html += "</div>";
 
+    // Sunset scheduling
+  html += "<div class='section'>";
+  html += "<h2>Sunset scheduling</h2>";
+  html += "<button onclick=\"sendCmd('/sunsetmode?enable=1')\">Enable Sunset Mode</button>";
+  html += "<button onclick=\"sendCmd('/sunsetmode?enable=0')\">Disable Sunset Mode</button>";
+  html += "<label for='offset'>Offset (minutes, -180 to +180)</label>";
+  html += "<input type='number' id='offset' value='" + String(sunsetOffsetMin) + "'>";
+  html += "<button onclick=\"sendCmd('/setSunsetOffset?min='+document.getElementById('offset').value)\">Save Offset</button>";
+  html += "</div>";
+
   // Status
   html += "<div class='section'>";
   html += "<h2>Status</h2>";
