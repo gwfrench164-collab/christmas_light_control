@@ -112,29 +112,65 @@ void updateSunsetTime() {
 // Web handlers
 void handleRoot() {
   String html = "<!DOCTYPE html><html><head><meta charset='UTF-8'>";
-  html += "<style>body{font-family:Arial;text-align:center;}button{display:block;width:220px;margin:15px auto;padding:15px;font-size:18px;}input{padding:10px;font-size:16px;margin:5px;}label{display:block;margin-top:10px;}#msg{margin-top:20px;font-size:16px;color:darkgreen;white-space:pre-line;border:1px solid #ccc;padding:10px;}</style>";
+  html += "<meta name='viewport' content='width=device-width, initial-scale=1.0'>";
+  html += "<style>";
+  html += "body { font-family: Arial, sans-serif; margin: 10px; background: #f9f9f9; }";
+  html += "h1, h2 { font-size: 1.2em; margin-top: 20px; }";
+  html += "button { display: block; width: 100%; padding: 12px; margin: 6px 0; font-size: 1em; border: none; border-radius: 6px; background: #0078d7; color: white; }";
+  html += "button:active { background: #005a9e; }";
+  html += "input[type='number'], input[type='text'], input[type='range'] { width: 100%; padding: 8px; margin: 6px 0; font-size: 1em; border: 1px solid #ccc; border-radius: 6px; }";
+  html += ".section { background: white; padding: 12px; margin-bottom: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }";
+  html += "#msg { margin-top: 10px; font-size: 0.9em; color: darkgreen; white-space: pre-line; border: 1px solid #ccc; padding: 10px; border-radius: 6px; background: #fff; }";
+  html += "</style>";
   html += "<script>";
   html += "function sendCmd(path){fetch(path).then(r=>r.text()).then(t=>{document.getElementById('msg').innerText=t;});}";
   html += "function refreshStatus(){sendCmd('/status');}";
   html += "setInterval(refreshStatus,5000);";
   html += "window.onload=refreshStatus;";
   html += "</script></head><body>";
+
+  // Title
+  html += "<div class='section'>";
   html += "<h1>Christmas Light Control</h1>";
+  html += "</div>";
+
+  // Relay control
+  html += "<div class='section'>";
   html += "<button onclick=\"sendCmd('/on')\">Turn ON (Manual)</button>";
   html += "<button onclick=\"sendCmd('/off')\">Turn OFF (Manual)</button>";
   html += "<button onclick=\"sendCmd('/auto')\">Return to Auto Schedule</button>";
+  html += "</div>";
+
+  // Pattern control
+  html += "<div class='section'>";
+  html += "<h2>Pattern control</h2>";
   html += "<button onclick=\"sendCmd('/pattern?name=CHASE')\">Pattern: CHASE</button>";
   html += "<button onclick=\"sendCmd('/pattern?name=WAVE')\">Pattern: WAVE</button>";
   html += "<button onclick=\"sendCmd('/pattern?name=RANDOM')\">Pattern: RANDOM</button>";
+  html += "</div>";
+
+  // Set schedule
+  html += "<div class='section'>";
   html += "<h2>Set Schedule</h2>";
   html += "<input id='on' placeholder='HH:MM'><br>";
   html += "<input id='off' placeholder='HH:MM'><br>";
   html += "<button onclick=\"sendCmd('/setschedule?on='+document.getElementById('on').value+'&off='+document.getElementById('off').value)\">Save Schedule</button>";
+  html += "</div>";
+
+  // Pattern speed
+  html += "<div class='section'>";
   html += "<h2>Pattern Speed</h2>";
   html += "<input type='range' min='50' max='1000' value='" + String(patternSpeed) + "' id='speed' oninput=\"document.getElementById('speedVal').innerText=this.value\">";
   html += "<div>Speed: <span id='speedVal'>" + String(patternSpeed) + "</span> ms</div>";
   html += "<button onclick=\"sendCmd('/setspeed?val='+document.getElementById('speed').value)\">Set Speed</button>";
-  html += "<h2>Status</h2><div id='msg'>Loading...</div>";
+  html += "</div>";
+
+  // Status
+  html += "<div class='section'>";
+  html += "<h2>Status</h2>;
+  html += "<div id='msg'>Loading...</div>";
+  html += "</div>";
+  
   html += "</body></html>";
   server.send(200, "text/html", html);
 }
