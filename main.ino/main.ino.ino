@@ -276,6 +276,26 @@ void handleSunsetMode() {
   server.send(200, "text/plain", String("Sunset mode: ") + (useSunset ? "ENABLED" : "DISABLED"));
 }
 
+void handleSetSunsetOffset() {
+  // Read the "min" argument from the URL
+  int m = server.arg("min").toInt();
+
+  // Clamp the value between -180 and +180 minutes
+  if (m < -180) m = -180;
+  if (m > 180) m = 180;
+
+  // Update the global variable
+  sunsetOffsetMin = m;
+
+  // Save to Preferences so it persists after reboot
+  prefs.begin("settings", false);
+  prefs.putInt("offset", sunsetOffsetMin);
+  prefs.end();
+
+  // Send confirmation back to the web page
+  server.send(200, "text/plain", "Sunset offset set to " + String(sunsetOffsetMin) + " minutes");
+}
+
 void handlePattern() {
   String name = server.arg("name");
   name.toUpperCase();
@@ -355,6 +375,9 @@ prefs.end();
   server.on("/setschedule", handleSetSchedule);
   server.on("/pattern", handlePattern);
   server.on("/setspeed", handleSetSpeed);
+  server.on("/sunsetmode", handleSunsetMode);
+  server.on("/setSunsetOffset", handleSetSunsetOffset);
+
   server.begin();
 }
 
