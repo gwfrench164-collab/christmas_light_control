@@ -39,6 +39,19 @@ HTTPUpdateServer httpUpdater;
 const int RELAY_PINS[8] = {12, 13, 15, 25, 26, 27, 32, 33};
 const bool RELAY_ACTIVE_LOW = false; // true if your relay boards are active-low (LOW = ON)
 
+#define DHTPIN 14       // DHT22 data pin on GPIO 14
+#define DHTTYPE DHT22   // Sensor type
+
+DHT dht(DHTPIN, DHTTYPE);  // Create the sensor object
+
+float enclosureTemp = NAN;      // latest measured temp (C)
+bool overheatShutdown = false;  // true when relays are forced off
+
+const float OVERHEAT_ON_C  = 50.0; // trip threshold
+const float OVERHEAT_OFF_C = 45.0; // recovery threshold
+
+unsigned long lastTempReadMs = 0;             // last time we checked
+const unsigned long TEMP_READ_INTERVAL_MS = 60000; // check every 60,000 ms (1 minute)
 // ----------------------------- Web / Networking ----------------------------
 WebServer server(80);
 DNSServer dnsServer;                 // for captive portal
@@ -122,6 +135,10 @@ unsigned long lastChangeMs[8] = {0}; // last time each channel toggled
 uint8_t currentFrame = 0;            // 8-bit ON/OFF snapshot (bit i -> channel i)
 
 inline void setRelay(int idx, bool on) {
+  if (idx < 0 || idx >= 8) return; // safety check
+
+  // If overheating, force OFF no matter what
+  bool effectiveOn = on && !overheatShutdown;
   if (RELAY_ACTIVE_LOW) digitalWrite(RELAY_PINS[idx], on ? LOW : HIGH);
   else                  digitalWrite(RELAY_PINS[idx], on ? HIGH : LOW);
 }
@@ -137,6 +154,8 @@ void applyFrame(uint8_t frame) {
   for (int i = 0; i < 8; i++) {
     bool wantOn = (frame >> i) & 0x01;
     bool isOn   = (currentFrame >> i) & 0x01;
+    // If overheating, block ON requests
+    if (overheatShutdown) wantOn = false;
     if (wantOn != isOn) {
       if ((unsigned long)(now - lastChangeMs[i]) >= minDwellMs) {
         setRelay(i, wantOn);
@@ -145,6 +164,29 @@ void applyFrame(uint8_t frame) {
         lastChangeMs[i] = now;
       }
     }
+  }
+}
+
+void checkTemperatureAndProtect() {
+  unsigned long now = millis();
+  if ((unsigned long)(now - lastTempReadMs) < TEMP_READ_INTERVAL_MS) return;
+  lastTempReadMs = now;
+
+  float t = dht.readTemperature(); // Celsius
+  if (isnan(t)) {
+    // Sensor read failed, skip
+    return;
+  }
+  enclosureTemp = t;
+
+  // Hysteresis logic
+  if (!overheatShutdown && t >= OVERHEAT_ON_C) {
+    overheatShutdown = true;
+    // Shut down ALL relays immediately
+    allOff();
+  } else if (overheatShutdown && t <= OVERHEAT_OFF_C) {
+    overheatShutdown = false;
+    // Do not auto-turn ON; let schedule/manual control decide
   }
 }
 
@@ -860,19 +902,6 @@ void startMDNS() {
   }
 }
 
-#define DHTPIN 14       // DHT22 data pin on GPIO 14
-#define DHTTYPE DHT22   // Sensor type
-
-DHT dht(DHTPIN, DHTTYPE);  // Create the sensor object
-
-float enclosureTemp = NAN;      // latest measured temp (C)
-bool overheatShutdown = false;  // true when relays are forced off
-
-const float OVERHEAT_ON_C  = 50.0; // trip threshold
-const float OVERHEAT_OFF_C = 45.0; // recovery threshold
-
-unsigned long lastTempReadMs = 0;             // last time we checked
-const unsigned long TEMP_READ_INTERVAL_MS = 60000; // check every 60,000 ms (1 minute)
 
 // ----------------------------- Setup / Loop --------------------------------
 void setup() {
@@ -943,28 +972,6 @@ void setup() {
   patternStart = millis();
 }
 
-void checkTemperatureAndProtect() {
-  unsigned long now = millis();
-  if ((unsigned long)(now - lastTempReadMs) < TEMP_READ_INTERVAL_MS) return;
-  lastTempReadMs = now;
-
-  float t = dht.readTemperature(); // Celsius
-  if (isnan(t)) {
-    // Sensor read failed, skip
-    return;
-  }
-  enclosureTemp = t;
-
-  // Hysteresis logic
-  if (!overheatShutdown && t >= OVERHEAT_ON_C) {
-    overheatShutdown = true;
-    // Shut down relay immediately
-    digitalWrite(RELAY_PIN, LOW);  // adjust HIGH/LOW depending on your relay wiring
-  } else if (overheatShutdown && t <= OVERHEAT_OFF_C) {
-    overheatShutdown = false;
-    // Do not auto-turn ON; let schedule/manual control decide
-  }
-}
 
 void loop() {
   // Web handling
