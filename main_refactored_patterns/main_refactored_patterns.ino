@@ -25,6 +25,7 @@
 #include <WiFi.h>
 #include <WiFiClientSecure.h>
 #include <WebServer.h>
+#include "DHT.h"
 #include <DNSServer.h>
 #include <HTTPClient.h>
 #include <ESPmDNS.h>
@@ -399,6 +400,12 @@ void handleRootUI() {
   String html = htmlHeader();
   html += F("<div class='section'><h1>Christmas Light Control</h1>"
             "<div id='msg'>Status appears here...</div></div>");
+
+  if (overheatShutdown) {
+  html += "<div class='section' style='background:#ffeaea;border:1px solid red;color:red;'>";
+  html += "<strong>⚠ Overheat detected!</strong><br>Relays have been shut down for safety.";
+  html += "</div>";
+}
 
   html += F("<div class='section'><h2>Power</h2>"
             "<button onclick=\"fetch('/on').then(r=>r.text()).then(t=>msg.innerText=t)\">Turn ON (Manual)</button>"
@@ -853,6 +860,20 @@ void startMDNS() {
   }
 }
 
+#define DHTPIN 14       // DHT22 data pin on GPIO 14
+#define DHTTYPE DHT22   // Sensor type
+
+DHT dht(DHTPIN, DHTTYPE);  // Create the sensor object
+
+float enclosureTemp = NAN;      // latest measured temp (C)
+bool overheatShutdown = false;  // true when relays are forced off
+
+const float OVERHEAT_ON_C  = 50.0; // trip threshold
+const float OVERHEAT_OFF_C = 45.0; // recovery threshold
+
+unsigned long lastTempReadMs = 0;             // last time we checked
+const unsigned long TEMP_READ_INTERVAL_MS = 60000; // check every 60,000 ms (1 minute)
+
 // ----------------------------- Setup / Loop --------------------------------
 void setup() {
   Serial.begin(115200);
@@ -865,6 +886,8 @@ void setup() {
     lastChangeMs[i] = 0;
   }
   currentFrame = 0;
+
+  dht.begin();
 
   // Load settings
   prefs.begin("settings", true);
@@ -920,6 +943,29 @@ void setup() {
   patternStart = millis();
 }
 
+void checkTemperatureAndProtect() {
+  unsigned long now = millis();
+  if ((unsigned long)(now - lastTempReadMs) < TEMP_READ_INTERVAL_MS) return;
+  lastTempReadMs = now;
+
+  float t = dht.readTemperature(); // Celsius
+  if (isnan(t)) {
+    // Sensor read failed, skip
+    return;
+  }
+  enclosureTemp = t;
+
+  // Hysteresis logic
+  if (!overheatShutdown && t >= OVERHEAT_ON_C) {
+    overheatShutdown = true;
+    // Shut down relay immediately
+    digitalWrite(RELAY_PIN, LOW);  // adjust HIGH/LOW depending on your relay wiring
+  } else if (overheatShutdown && t <= OVERHEAT_OFF_C) {
+    overheatShutdown = false;
+    // Do not auto-turn ON; let schedule/manual control decide
+  }
+}
+
 void loop() {
   // Web handling
   server.handleClient();
@@ -932,6 +978,8 @@ void loop() {
       else                    lastSunsetUpdate = millis() - 86400000UL + 600000UL; // retry ~10 min
     }
   }
+
+  checkTemperatureAndProtect();
 
   // Schedule: re-evaluate every second (AUTO)
   if (!manualOverride && (unsigned long)(millis() - lastScheduleCheck) > 1000UL) {
