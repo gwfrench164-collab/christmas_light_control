@@ -761,14 +761,14 @@ void handleSetHold() {
 // ----------------------------- Wi‑Fi / mDNS / Server -----------------------
 void mountRoutes(bool apMode) {
   if (apMode) {
-    server.onNotFound({
-      if (WiFi.getMode() & WIFI_AP) {
-        server.sendHeader("Location", String("http://") + apIP.toString() + "/setup", true);
-        server.send(302, "text/plain", "");
-      } else {
-        server.send(404, "text/plain", "Not found");
-      }
-    });
+    server.onNotFound([]() {
+  if (WiFi.getMode() & WIFI_AP) {
+    server.sendHeader("Location", String("http://") + apIP.toString() + "/setup", true);
+    server.send(302, "text/plain", "");
+  } else {
+    server.send(404, "text/plain", "Not found");
+  }
+});
   }
 
   server.on("/", handleRootUI);
