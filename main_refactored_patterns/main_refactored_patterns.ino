@@ -892,11 +892,7 @@ void setup() {
   configTime(0, 0, ntpServer);
   setenv("TZ", TZ_RULE, 1);  // Apply Mountain Time with DST rules
   tzset();
-  time_t now = time(nullptr);
-  Serial.print("UTC:   ");
-  Serial.println(asctime(gmtime(&now)));
-  Serial.print("Local: ");
-  Serial.println(asctime(localtime(&now)));
+
                    // Load the new timezone
 
 
