@@ -406,11 +406,23 @@ void handleRootUI() {
             "<button onclick=\"fetch('/auto').then(r=>r.text()).then(t=>msg.innerText=t)\">Return to Auto</button>"
             "</div>");
 
-  // Core patterns
+    // Unified patterns dropdown
   html += F("<div class='section'><h2>Patterns</h2>"
-            "<button onclick=\"fetch('/pattern?name=CHASE').then(r=>r.text()).then(t=>msg.innerText=t)\">CHASE</button>"
-            "<button onclick=\"fetch('/pattern?name=WAVE').then(r=>r.text()).then(t=>msg.innerText=t)\">WAVE</button>"
-            "<button onclick=\"fetch('/pattern?name=RANDOM').then(r=>r.text()).then(t=>msg.innerText=t)\">RANDOM</button>"
+            "<label for='pattern'>Choose a pattern:</label>"
+            "<select id='pattern' name='pattern' onchange=\"setPattern(this.value)\">"
+            "<option value='CHASE'>CHASE</option>"
+            "<option value='WAVE'>WAVE</option>"
+            "<option value='RANDOM'>RANDOM</option>"
+            "<option value='ALT_EVEN_ODD'>ALT_EVEN_ODD</option>"
+            "<option value='BOUNCE'>BOUNCE</option>"
+            "<option value='CHASE_GAP'>CHASE_GAP</option>"
+            "<option value='PAIR_PINGPONG'>PAIR_PINGPONG</option>"
+            "<option value='BLOCK_WIPE'>BLOCK_WIPE</option>"
+            "<option value='OVERLAP_WAVE'>OVERLAP_WAVE</option>"
+            "<option value='SPARKLE_SPARSE'>SPARKLE_SPARSE</option>"
+            "<option value='HALF_SWAP'>HALF_SWAP</option>"
+            "<option value='BINARY_COUNT'>BINARY_COUNT</option>"
+            "</select>"
             "</div>");
 
   // Speed (relay-safe clamp handled on server)
@@ -445,20 +457,6 @@ void handleRootUI() {
           "<button onclick=\"fetch('/sethold?sec='+document.getElementById('holdsec').value).then(r=>r.text()).then(t=>msg.innerText=t)\">Set Hold</button>"
           "</div>";
 
-  // More patterns (manual select)
-  html += F("<div class='section'><h2>More Patterns</h2>"
-            "<button onclick=\"fetch('/pattern?name=ALT_EVEN_ODD').then(r=>r.text()).then(t=>msg.innerText=t)\">ALT_EVEN_ODD</button>"
-            "<button onclick=\"fetch('/pattern?name=BOUNCE').then(r=>r.text()).then(t=>msg.innerText=t)\">BOUNCE</button>"
-            "<button onclick=\"fetch('/pattern?name=CHASE_GAP').then(r=>r.text()).then(t=>msg.innerText=t)\">CHASE_GAP</button>"
-            "<button onclick=\"fetch('/pattern?name=PAIR_PINGPONG').then(r=>r.text()).then(t=>msg.innerText=t)\">PAIR_PINGPONG</button>"
-            "<button onclick=\"fetch('/pattern?name=BLOCK_WIPE').then(r=>r.text()).then(t=>msg.innerText=t)\">BLOCK_WIPE</button>"
-            "<button onclick=\"fetch('/pattern?name=OVERLAP_WAVE').then(r=>r.text()).then(t=>msg.innerText=t)\">OVERLAP_WAVE</button>"
-            "<button onclick=\"fetch('/pattern?name=SPARKLE_SPARSE').then(r=>r.text()).then(t=>msg.innerText=t)\">SPARKLE_SPARSE</button>"
-            "<button onclick=\"fetch('/pattern?name=RANDOM_BURSTS').then(r=>r.text()).then(t=>msg.innerText=t)\">RANDOM_BURSTS</button>"
-            "<button onclick=\"fetch('/pattern?name=HALF_SWAP').then(r=>r.text()).then(t=>msg.innerText=t)\">HALF_SWAP</button>"
-            "<button onclick=\"fetch('/pattern?name=BINARY_COUNT').then(r=>r.text()).then(t=>msg.innerText=t)\">BINARY_COUNT</button>"
-            "</div>");
-
   // Setup link
   html += F("<div class='section'><h2>Setup</h2>"
             "/setup<button>Open Setup Page</button></a>"
@@ -468,6 +466,15 @@ void handleRootUI() {
   html += F("<script>const msg=document.getElementById('msg');"
             "function refresh(){fetch('/status').then(r=>r.text()).then(t=>msg.innerText=t)}"
             "setInterval(refresh,4000);window.onload=refresh;</script>");
+
+  html += F("<script>"
+            "function setPattern(p) {"
+            "  fetch('/pattern?name=' + encodeURIComponent(p))"
+            "    .then(r => r.text())"
+            "    .then(t => msg.innerText = t);"
+            "}"
+            "</script>");
+
 
   html += htmlFooter();
   server.send(200, "text/html", html);
@@ -892,7 +899,7 @@ void setup() {
   configTime(0, 0, ntpServer);
   setenv("TZ", TZ_RULE, 1);  // Apply Mountain Time with DST rules
   tzset();
-
+  
                    // Load the new timezone
 
 
