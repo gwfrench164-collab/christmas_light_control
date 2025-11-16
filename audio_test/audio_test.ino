@@ -1,5 +1,5 @@
 #include <WiFi.h>
-#include <ESP32_VS1053_Stream.h>
+#include <Adafruit VS1053 Library.h>
 
 #define VS_CS    5
 #define VS_DCS   22
@@ -12,8 +12,8 @@
 
 ESP32_VS1053_Stream player;
 
-const char* ssid     = "YOUR_SSID";
-const char* password = "YOUR_PASS";
+const char* ssid     = "";
+const char* password = "";
 const char* streamURL = "http://maestro.emfcdn.com/stream_for/k-love/iheart/aac";
 
 void setup() {
