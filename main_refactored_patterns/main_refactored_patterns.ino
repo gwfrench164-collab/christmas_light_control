@@ -718,7 +718,7 @@ void handleStatusText() {
   msg += "Sunset offset: " + String(sunsetOffsetMin) + " min\n";
   msg += "Relays: " + String(relaysEnabled ? "ENABLED" : "DISABLED") + "\n";
   msg += "Mode: " + String(manualOverride ? "MANUAL" : "AUTO") + "\n";
-  msg += "Shuffle: " + String("ON") + "\n"; // shown via /status.json precisely
+  msg += "Shuffle: " + String(shuffleEnabled ? "ON" : "OFF") + "\n"; // shown via /status.json precisely
   msg += "Hold: " + String(60000/1000) + " s\n";
   server.send(200, "text/plain", msg);
 }
