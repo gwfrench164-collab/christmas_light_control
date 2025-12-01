@@ -86,7 +86,8 @@ enum Pattern {
   SPARKLE_SPARSE,
   RANDOM_BURSTS,
   HALF_SWAP,
-  BINARY_COUNT
+  BINARY_COUNT,
+  ALL_ON
 };
 
 const char* patternName(Pattern p) {
@@ -104,6 +105,7 @@ const char* patternName(Pattern p) {
     case RANDOM_BURSTS:   return "RANDOM_BURSTS";
     case HALF_SWAP:       return "HALF_SWAP";
     case BINARY_COUNT:    return "BINARY_COUNT";
+    case ALL_ON:          return "ALL_ON";
     default:              return "UNKNOWN";
   }
 }
@@ -302,6 +304,10 @@ uint8_t frame_BINARY_COUNT() {
   return mask;
 }
 
+uint8_t frame_ALL_ON() {
+  return 0xFF; // all 8 relays ON
+}
+
 // ----------------------------- Pattern stepping (non-blocking) -------------
 void stepPatternIfDue() {
   unsigned long now = millis();
@@ -333,6 +339,10 @@ void stepPatternIfDue() {
     case RANDOM:
       frame = (1 << random(0,8));
       break;
+
+    case ALL_ON:
+      frame = frame_ALL_ON();
+      break;  
 
     case ALT_EVEN_ODD:    frame = frame_ALT_EVEN_ODD();    break;
     case BOUNCE:          frame = frame_BOUNCE();          break;
@@ -471,6 +481,7 @@ void handleRootUI() {
             "<option value='SPARKLE_SPARSE'>SPARKLE_SPARSE</option>"
             "<option value='HALF_SWAP'>HALF_SWAP</option>"
             "<option value='BINARY_COUNT'>BINARY_COUNT</option>"
+            "<option value='ALL_ON'>ALL_ON</option>"
             "</select>"
             "</div>");
 
@@ -683,6 +694,7 @@ void handlePattern() {
   else if (name == "RANDOM_BURSTS")   next = RANDOM_BURSTS;
   else if (name == "HALF_SWAP")       next = HALF_SWAP;
   else if (name == "BINARY_COUNT")    next = BINARY_COUNT;
+  else if (name == "ALL_ON")          next = ALL_ON;
 
   startPattern(next);
   server.send(200, "text/plain", String("Pattern set to ") + patternName(currentPattern));
