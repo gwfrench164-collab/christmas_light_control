@@ -500,7 +500,7 @@ void handleRootUI() {
   // Playlist controls
   html += "<div class='section'><h2>Playlist</h2>"
           "<button onclick=\"fetch('/setshuffle?enable=1').then(r=>r.text()).then(t=>msg.innerText=t)\">Shuffle ON</button>"
-          "<button onclick=\"fetch('/setshuffle?enable=0').then(r=>r.text()).then(t=>msg.innerText=t)\">Shuffle OFF (Sequential)</button>"
+          "<button onclick=\"fetch('/setshuffle?enable=0').then(r=>r.text()).then(t=>msg.innerText=t)\">Shuffle OFF</button>"
           "<label>Pattern Hold (seconds)</label>"
           "<input type='number' id='holdsec' value='" + String(60000/1000) + "'>"
           "<button onclick=\"fetch('/sethold?sec='+document.getElementById('holdsec').value).then(r=>r.text()).then(t=>msg.innerText=t)\">Set Hold</button>"
