@@ -114,6 +114,7 @@ Pattern currentPattern = CHASE;
 int  patternSpeed = 200;            // ms per step (relay-safe clamp applied)
 bool relaysEnabled = false;         // current power to relays
 bool manualOverride = false;        // manual vs. auto schedule
+bool shuffleEnabled = true;     // rotate randomly without repeats (persisted)
 bool useSunset = true;              // if true, ON time tracks sunset daily
 int  sunsetOffsetMin = 0;           // -180..+180
 int  on_h = 18, on_m = 0;           // manual schedule ON  time (hh:mm)
@@ -747,7 +748,6 @@ void handleStatusJSON() {
 }
 
 // ----------------------------- Playlist / shuffle --------------------------
-bool shuffleEnabled = true;     // rotate randomly without repeats (persisted)
 uint32_t patternHoldMs = 60000; // default 60s per pattern (persisted)
 unsigned long patternStart = 0;
 
