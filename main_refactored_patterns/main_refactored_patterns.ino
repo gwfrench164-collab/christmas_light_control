@@ -775,8 +775,7 @@ void startPattern(Pattern p) {
 
 void maybeAdvancePattern() {
   if (!relaysEnabled) return;    // only rotate when lights are on
-  // (Optional) if you want to rotate only in AUTO, uncomment next line:
-  // if (manualOverride) return;
+  if (!shuffleEnabled) return;
 
   if ((unsigned long)(millis() - patternStart) < patternHoldMs) return;
 
